@@ -11,17 +11,17 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 
     <style>
-        body { font-family: Arial, sans-serif; background: #0f0f0f; color: white; text-align: center; margin: 0; padding: 20px; }
-        input { padding: 8px; border-radius: 8px; border: none; margin: 3px; width: 80px; background: #333; color: white; }
-        button { padding: 10px 15px; margin: 5px; border: none; border-radius: 8px; background: #2a2a2a; color: white; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f0f0f; color: white; text-align: center; margin: 0; padding: 20px; }
+        input { padding: 10px; border-radius: 8px; border: none; margin: 5px; width: 85px; background: #333; color: white; outline: none; }
+        button { padding: 10px 18px; margin: 5px; border: none; border-radius: 8px; background: #2a2a2a; color: white; cursor: pointer; font-weight: bold; transition: 0.3s; }
         button:hover { background: #444; }
-        .container { display: flex; flex-wrap: wrap; justify-content: center; }
-        .card { background: #1a1a1a; padding: 15px; margin: 10px; border-radius: 12px; width: 280px; border: 1px solid #333; }
-        #user-info { margin: 15px; font-size: 0.9em; color: #aaa; min-height: 1.2em; }
-        .btn-google { background: #4285F4; color: white; border: none; }
+        .container { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-top: 20px; }
+        .card { background: #1a1a1a; padding: 20px; border-radius: 15px; width: 280px; border: 1px solid #333; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        #user-info { margin: 15px; font-size: 0.9em; color: #4285F4; min-height: 20px; font-weight: bold; }
+        .btn-google { background: #4285F4; color: white; }
         .btn-google:hover { background: #357ae8; }
-        canvas { max-width: 100%; margin-top: 10px; background: #111; border-radius: 5px; }
-        .loading-text { font-style: italic; color: #4285F4; }
+        .btn-danger { background: #b3261e; }
+        canvas { max-width: 100%; margin-top: 15px; background: #111; border-radius: 8px; }
     </style>
 </head>
 <body>
@@ -29,13 +29,13 @@
 <h1>🏋️ Gym Tracker PRO</h1>
 
 <div id="auth-section">
-    <div id="user-info" class="loading-text">Sincronizando com Google...</div>
+    <div id="user-info">Verificando conexão...</div>
     <button id="btn-login" class="btn-google" onclick="login()" style="display:none;">🔐 Entrar com Google</button>
-    <button id="btn-logout" onclick="logout()" style="display:none;">🚪 Sair</button>
+    <button id="btn-logout" class="btn-danger" onclick="logout()" style="display:none;">🚪 Sair</button>
 </div>
 
 <div id="app">
-    <input type="text" id="busca" placeholder="Buscar exercício..." oninput="render()" style="width: 85%; max-width: 400px; margin-bottom: 20px;">
+    <input type="text" id="busca" placeholder="Filtrar exercício..." oninput="render()" style="width: 85%; max-width: 400px; margin-bottom: 15px;">
     
     <div style="margin-bottom: 20px; display: flex; flex-wrap: wrap; justify-content: center; gap: 5px;">
         <button onclick="setGrupo('todos')">Todos</button>
@@ -63,14 +63,24 @@ if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
 const auth = firebase.auth();
+let usuario = localStorage.getItem("last_uid") || "convidado";
 
-let usuario = "convidado";
-let authPronta = false; // Trava a renderização até o Firebase responder
-
-// 2. FUNÇÕES DE AUTENTICAÇÃO
-function login() {
+// 2. LÓGICA DE LOGIN
+async function login() {
     const provider = new firebase.auth.GoogleAuthProvider();
-    auth.signInWithRedirect(provider);
+    try {
+        // Tenta abrir o Popup (mais rápido)
+        await auth.signInWithPopup(provider);
+    } catch (error) {
+        if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request') {
+            // Se o popup for bloqueado, usa o Redirect
+            auth.signInWithRedirect(provider);
+        } else if (error.code === 'auth/unauthorized-domain') {
+            alert("ERRO: Este site não está autorizado no Console do Firebase. Adicione o seu link do GitHub em 'Domínios Autorizados'.");
+        } else {
+            alert("Erro ao logar: " + error.message);
+        }
+    }
 }
 
 function logout() {
@@ -80,91 +90,68 @@ function logout() {
     });
 }
 
-// CAPTURA RESULTADO DO REDIRECT (Essencial para GitHub Pages)
-auth.getRedirectResult().then((result) => {
-    if (result && result.user) {
-        usuario = result.user.uid;
-        authPronta = true;
-        render();
-    }
-}).catch(error => {
-    console.error("Erro no Redirect:", error);
-    if(error.code === 'auth/unauthorized-domain') {
-        alert("Erro: Domínio não autorizado no Firebase!");
-    }
-});
-
-// MONITOR DE ESTADO (AQUI É ONDE O LOGIN É CONFIRMADO)
+// Escuta mudanças de login
 auth.onAuthStateChanged(user => {
     const info = document.getElementById("user-info");
     const btnL = document.getElementById("btn-login");
     const btnO = document.getElementById("btn-logout");
 
-    authPronta = true; // Firebase terminou de checar
-
     if (user) {
         usuario = user.uid;
-        info.innerText = "✅ Logado como: " + user.email;
-        info.classList.remove("loading-text");
+        localStorage.setItem("last_uid", user.uid);
+        info.innerText = "✅ Logado: " + user.email;
         btnL.style.display = "none";
         btnO.style.display = "inline-block";
     } else {
         usuario = "convidado";
-        info.innerText = "⚠️ Modo Offline (Dados locais)";
-        info.classList.remove("loading-text");
+        info.innerText = "⚠️ Modo Offline (Dados no Celular)";
         btnL.style.display = "inline-block";
         btnO.style.display = "none";
     }
     render();
 });
 
-// 3. LÓGICA DO APP
+// Captura retorno do Redirect (caso o popup falhe)
+auth.getRedirectResult().then(result => {
+    if (result.user) render();
+}).catch(e => console.error("Erro no retorno:", e));
+
+// 3. BASE DE DADOS E RENDERIZAÇÃO
 let grupoAtual = "todos";
 let mostrarFav = false;
 
 const maquinas = [
-    {nome:"Supino Reto Máquina",grupo:"peito"},
-    {nome:"Supino Inclinado Máquina",grupo:"peito"},
-    {nome:"Puxada Alta",grupo:"costas"},
-    {nome:"Remada Baixa",grupo:"costas"},
-    {nome:"Rosca Direta",grupo:"biceps"},
-    {nome:"Tríceps Corda",grupo:"triceps"},
-    {nome:"Leg Press 45°",grupo:"perna"},
-    {nome:"Cadeira Extensora",grupo:"perna"},
-    {nome:"Elevação Lateral",grupo:"ombro"},
-    {nome:"Esteira",grupo:"cardio"}
+    {nome:"Supino Reto Máquina", grupo:"peito"},
+    {nome:"Supino Inclinado Máquina", grupo:"peito"},
+    {nome:"Puxada Alta", grupo:"costas"},
+    {nome:"Remada Baixa", grupo:"costas"},
+    {nome:"Rosca Direta", grupo:"biceps"},
+    {nome:"Tríceps Corda", grupo:"triceps"},
+    {nome:"Leg Press 45°", grupo:"perna"},
+    {nome:"Cadeira Extensora", grupo:"perna"},
+    {nome:"Elevação Lateral", grupo:"ombro"},
+    {nome:"Esteira", grupo:"cardio"}
 ];
 
 function gerarId(nome) {
     return nome.normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g,"_").replace(/[^\w]/g,"");
 }
 
-function getKey(nome) {
-    return usuario + "_" + nome;
-}
+function getKey(n) { return usuario + "_" + n; }
 
 function setGrupo(g) { grupoAtual = g; mostrarFav = false; render(); }
 function toggleFav() { mostrarFav = !mostrarFav; render(); }
 
 function render() {
     const lista = document.getElementById("lista");
-    if (!lista) return;
-
-    // Se o Firebase ainda não respondeu, não desenha a lista ainda
-    if (!authPronta) {
-        lista.innerHTML = "<p>Carregando perfil...</p>";
-        return;
-    }
-
     const busca = document.getElementById("busca").value.toLowerCase();
+    if (!lista) return;
     lista.innerHTML = "";
 
-    const filtrados = maquinas.filter(m => 
+    maquinas.filter(m => 
         (grupoAtual === "todos" || m.grupo === grupoAtual) && 
         m.nome.toLowerCase().includes(busca)
-    );
-
-    filtrados.forEach(m => {
+    ).forEach(m => {
         const key = getKey(m.nome);
         const fav = localStorage.getItem(key + "_fav") === "true";
         if (mostrarFav && !fav) return;
@@ -205,8 +192,8 @@ function salvar(nome) {
 
 function favoritar(nome) {
     const key = getKey(nome) + "_fav";
-    const estado = localStorage.getItem(key) === "true";
-    localStorage.setItem(key, !estado);
+    const status = localStorage.getItem(key) === "true";
+    localStorage.setItem(key, !status);
     render();
 }
 
@@ -214,22 +201,20 @@ function verGrafico(nome) {
     const id = "graf-" + gerarId(nome);
     const ctx = document.getElementById(id);
     const hist = JSON.parse(localStorage.getItem(getKey(nome) + "_hist")) || [];
-    
-    if (!hist.length) return alert("Sem histórico para este exercício.");
+    if (!hist.length) return alert("Adicione pesos primeiro para ver o gráfico.");
     
     ctx.style.display = "block";
     new Chart(ctx, {
         type: 'line',
         data: {
-            labels: hist.map((_, i) => "T" + (i + 1)),
-            datasets: [{ label: "Peso", data: hist, borderColor: '#4285F4', backgroundColor: 'rgba(66, 133, 244, 0.2)', fill: true }]
+            labels: hist.map((_, i) => "S" + (i + 1)),
+            datasets: [{ label: "Evolução (kg)", data: hist, borderColor: '#4285F4', backgroundColor: 'rgba(66, 133, 244, 0.1)', fill: true, tension: 0.3 }]
         }
     });
 }
 
-// Inicializa Service Worker
-if ("serviceWorker" in navigator) { navigator.serviceWorker.register("sw.js").catch(() => {}); }
-
+// Inicializa o Render
+render();
 </script>
 </body>
 </html>
