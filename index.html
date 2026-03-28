@@ -59,47 +59,50 @@
 </div>
 
 <script>
-// --- CONFIGURAÇÃO E LOGIN ---
+// 1. CONFIGURAÇÃO FIREBASE (Versão Compat para Capacitor)
 const firebaseConfig = {
     apiKey: "AIzaSyAHI75Au3Ai4v751Jx8MNe6OGuyYwfmg5w",
     authDomain: "gym-tracker-3e228.firebaseapp.com",
     projectId: "gym-tracker-3e228"
 };
 
-firebase.initializeApp(firebaseConfig);
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
 const auth = firebase.auth();
 
-let usuario = localStorage.getItem("user") || "convidado";
+// FORÇAR PERSISTÊNCIA LOCAL (Essencial para APK)
+// Isso garante que o login não "suma" quando o Android matar o processo do app
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
 
-function login() {
+// Identificador único para o LocalStorage
+let usuario = localStorage.getItem("user_uid") || "convidado";
+
+async function login() {
     const provider = new firebase.auth.GoogleAuthProvider();
-    auth.signInWithRedirect(provider);
-}
-
-function logout() {
-    auth.signOut().then(() => {
-        localStorage.removeItem("user");
-        location.reload();
-    });
+    
+    // No Capacitor, o Redirect GERALMENTE FALHA. 
+    // Tentamos o Popup primeiro, que costuma abrir o navegador do sistema.
+    try {
+        await auth.signInWithPopup(provider);
+    } catch (e) {
+        console.error("Popup falhou, tentando Redirect...", e);
+        auth.signInWithRedirect(provider);
+    }
 }
 
 auth.onAuthStateChanged(user => {
     const info = document.getElementById("user-info");
-    const btnO = document.getElementById("btn-logout");
-    
     if (user) {
         usuario = user.uid;
-        localStorage.setItem("user", usuario);
+        localStorage.setItem("user_uid", user.uid);
         info.innerText = "✅ Logado: " + user.email;
-        btnO.style.display = "inline-block";
     } else {
-        usuario = "convidado";
-        info.innerText = "⚠️ Modo Offline (Local)";
-        btnO.style.display = "none";
+        // Se não houver user, mantemos o que está no localStorage ou 'convidado'
+        info.innerText = "⚠️ Modo Offline (Dados no Celular)";
     }
     render();
 });
-
 // --- LÓGICA DO APP ---
 let mostrarFav = false;
 let grupoAtual = "todos";
