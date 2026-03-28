@@ -53,6 +53,7 @@
 
 <script>
 // 1. CONFIGURAÇÃO FIREBASE
+// 1. CONFIGURAÇÃO FIREBASE
 const firebaseConfig = {
     apiKey: "AIzaSyAHI75Au3Ai4v751Jx8MNe6OGuyYwfmg5w",
     authDomain: "gym-tracker-3e228.firebaseapp.com",
@@ -63,63 +64,76 @@ if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
 const auth = firebase.auth();
-let usuario = localStorage.getItem("last_uid") || "convidado";
 
-// 2. LÓGICA DE LOGIN
+// 2. FORÇAR PERSISTÊNCIA LOCAL (Isso evita deslogar sozinho)
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+
+let usuario = localStorage.getItem("user_uid") || "convidado";
+
+// 3. FUNÇÕES DE LOGIN
 async function login() {
     const provider = new firebase.auth.GoogleAuthProvider();
+    // Forçar a conta para garantir que o processo ocorra
+    provider.setCustomParameters({ prompt: 'select_account' });
+    
     try {
-        // Tenta abrir o Popup (mais rápido)
+        // Tentamos o Popup primeiro. Se falhar, ele vai pro catch
         await auth.signInWithPopup(provider);
     } catch (error) {
-        if (error.code === 'auth/popup-blocked' || error.code === 'auth/cancelled-popup-request') {
-            // Se o popup for bloqueado, usa o Redirect
-            auth.signInWithRedirect(provider);
-        } else if (error.code === 'auth/unauthorized-domain') {
-            alert("ERRO: Este site não está autorizado no Console do Firebase. Adicione o seu link do GitHub em 'Domínios Autorizados'.");
-        } else {
-            alert("Erro ao logar: " + error.message);
-        }
+        console.warn("Popup falhou, tentando Redirect...", error.code);
+        auth.signInWithRedirect(provider);
     }
 }
 
 function logout() {
     auth.signOut().then(() => {
-        localStorage.clear();
+        localStorage.removeItem("user_uid");
         location.reload();
     });
 }
 
-// Escuta mudanças de login
+// 4. MONITOR DE ESTADO (O CORAÇÃO DO LOGIN)
 auth.onAuthStateChanged(user => {
     const info = document.getElementById("user-info");
     const btnL = document.getElementById("btn-login");
     const btnO = document.getElementById("btn-logout");
 
     if (user) {
+        console.log("Usuário detectado:", user.email);
         usuario = user.uid;
-        localStorage.setItem("last_uid", user.uid);
+        localStorage.setItem("user_uid", user.uid); // Salva o ID manualmente
         info.innerText = "✅ Logado: " + user.email;
         btnL.style.display = "none";
         btnO.style.display = "inline-block";
     } else {
+        console.log("Nenhum usuário logado.");
         usuario = "convidado";
-        info.innerText = "⚠️ Modo Offline (Dados no Celular)";
+        info.innerText = "⚠️ Modo Offline (Dados locais)";
         btnL.style.display = "inline-block";
         btnO.style.display = "none";
     }
     render();
 });
 
-// Captura retorno do Redirect (caso o popup falhe)
+// Captura o resultado do redirect caso tenha sido usado
 auth.getRedirectResult().then(result => {
-    if (result.user) render();
-}).catch(e => console.error("Erro no retorno:", e));
+    if (result.user) {
+        usuario = result.user.uid;
+        localStorage.setItem("user_uid", result.user.uid);
+        render();
+    }
+}).catch(e => {
+    console.error("Erro no Redirect:", e);
+    if(e.code === 'auth/unauthorized-domain') {
+        alert("ALERTA: Domínio não autorizado no Console do Firebase!");
+    }
+});
 
-// 3. BASE DE DADOS E RENDERIZAÇÃO
+// 5. LÓGICA DO APP
 let grupoAtual = "todos";
 let mostrarFav = false;
 
+// Sua lista de exercícios (reduzida para exemplo)
 const maquinas = [
     {nome:"Supino Reto Máquina", grupo:"peito"},
     {nome:"Supino Inclinado Máquina", grupo:"peito"},
@@ -133,14 +147,8 @@ const maquinas = [
     {nome:"Esteira", grupo:"cardio"}
 ];
 
-function gerarId(nome) {
-    return nome.normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g,"_").replace(/[^\w]/g,"");
-}
-
+function gerarId(n) { return n.normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g,"_").replace(/[^\w]/g,""); }
 function getKey(n) { return usuario + "_" + n; }
-
-function setGrupo(g) { grupoAtual = g; mostrarFav = false; render(); }
-function toggleFav() { mostrarFav = !mostrarFav; render(); }
 
 function render() {
     const lista = document.getElementById("lista");
@@ -169,7 +177,7 @@ function render() {
             <input id="${id}" type="number" value="${peso}" placeholder="Kg">
             <button onclick="salvar('${m.nome}')">💾 Salvar</button>
             <div style="margin-top:10px">
-                <button onclick="favoritar('${m.nome}')">${fav ? 'Remover ⭐' : 'Favoritar ⭐'}</button>
+                <button onclick="favoritar('${m.nome}')">${fav ? 'Remover' : 'Favoritar'}</button>
                 <button onclick="verGrafico('${m.nome}')">📈</button>
             </div>
             <canvas id="graf-${id}" style="display:none"></canvas>
@@ -179,8 +187,7 @@ function render() {
 }
 
 function salvar(nome) {
-    const input = document.getElementById(gerarId(nome));
-    const val = input.value;
+    const val = document.getElementById(gerarId(nome)).value;
     if (!val) return;
     const key = getKey(nome);
     localStorage.setItem(key, val);
@@ -192,8 +199,7 @@ function salvar(nome) {
 
 function favoritar(nome) {
     const key = getKey(nome) + "_fav";
-    const status = localStorage.getItem(key) === "true";
-    localStorage.setItem(key, !status);
+    localStorage.setItem(key, localStorage.getItem(key) !== "true");
     render();
 }
 
@@ -201,19 +207,20 @@ function verGrafico(nome) {
     const id = "graf-" + gerarId(nome);
     const ctx = document.getElementById(id);
     const hist = JSON.parse(localStorage.getItem(getKey(nome) + "_hist")) || [];
-    if (!hist.length) return alert("Adicione pesos primeiro para ver o gráfico.");
-    
+    if (!hist.length) return alert("Sem histórico.");
     ctx.style.display = "block";
     new Chart(ctx, {
         type: 'line',
         data: {
-            labels: hist.map((_, i) => "S" + (i + 1)),
-            datasets: [{ label: "Evolução (kg)", data: hist, borderColor: '#4285F4', backgroundColor: 'rgba(66, 133, 244, 0.1)', fill: true, tension: 0.3 }]
+            labels: hist.map((_, i) => "T" + (i + 1)),
+            datasets: [{ label: "Peso", data: hist, borderColor: '#4285F4', tension: 0.1 }]
         }
     });
 }
 
-// Inicializa o Render
+function setGrupo(g) { grupoAtual = g; mostrarFav = false; render(); }
+function toggleFav() { mostrarFav = !mostrarFav; render(); }
+
 render();
 </script>
 </body>
