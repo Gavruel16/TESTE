@@ -21,6 +21,7 @@
         .btn-google { background: #4285F4; color: white; border: none; }
         .btn-google:hover { background: #357ae8; }
         canvas { max-width: 100%; margin-top: 10px; background: #111; border-radius: 5px; }
+        .loading-text { font-style: italic; color: #4285F4; }
     </style>
 </head>
 <body>
@@ -28,7 +29,7 @@
 <h1>🏋️ Gym Tracker PRO</h1>
 
 <div id="auth-section">
-    <div id="user-info">Iniciando...</div>
+    <div id="user-info" class="loading-text">Sincronizando com Google...</div>
     <button id="btn-login" class="btn-google" onclick="login()" style="display:none;">🔐 Entrar com Google</button>
     <button id="btn-logout" onclick="logout()" style="display:none;">🚪 Sair</button>
 </div>
@@ -58,14 +59,13 @@ const firebaseConfig = {
     projectId: "gym-tracker-3e228"
 };
 
-// Evita erro de inicialização duplicada
 if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
 const auth = firebase.auth();
 
-// Recupera o ID salvo para evitar o "flash" do modo offline
-let usuario = localStorage.getItem("firebase_uid") || "convidado";
+let usuario = "convidado";
+let authPronta = false; // Trava a renderização até o Firebase responder
 
 // 2. FUNÇÕES DE AUTENTICAÇÃO
 function login() {
@@ -75,41 +75,43 @@ function login() {
 
 function logout() {
     auth.signOut().then(() => {
-        localStorage.removeItem("firebase_uid");
+        localStorage.clear();
         location.reload();
     });
 }
 
-// CAPTURA O RETORNO DO REDIRECT (Fundamental para GitHub Pages)
+// CAPTURA RESULTADO DO REDIRECT (Essencial para GitHub Pages)
 auth.getRedirectResult().then((result) => {
-    if (result.user) {
+    if (result && result.user) {
         usuario = result.user.uid;
-        localStorage.setItem("firebase_uid", usuario);
+        authPronta = true;
         render();
     }
 }).catch(error => {
     console.error("Erro no Redirect:", error);
     if(error.code === 'auth/unauthorized-domain') {
-        alert("Erro: Domínio não autorizado no Console do Firebase!");
+        alert("Erro: Domínio não autorizado no Firebase!");
     }
 });
 
-// MONITOR DE ESTADO
+// MONITOR DE ESTADO (AQUI É ONDE O LOGIN É CONFIRMADO)
 auth.onAuthStateChanged(user => {
     const info = document.getElementById("user-info");
     const btnL = document.getElementById("btn-login");
     const btnO = document.getElementById("btn-logout");
 
+    authPronta = true; // Firebase terminou de checar
+
     if (user) {
         usuario = user.uid;
-        localStorage.setItem("firebase_uid", usuario);
-        info.innerText = "Logado como: " + user.email;
+        info.innerText = "✅ Logado como: " + user.email;
+        info.classList.remove("loading-text");
         btnL.style.display = "none";
         btnO.style.display = "inline-block";
     } else {
         usuario = "convidado";
-        localStorage.removeItem("firebase_uid");
-        info.innerText = "Modo Offline (Dados locais)";
+        info.innerText = "⚠️ Modo Offline (Dados locais)";
+        info.classList.remove("loading-text");
         btnL.style.display = "inline-block";
         btnO.style.display = "none";
     }
@@ -120,7 +122,6 @@ auth.onAuthStateChanged(user => {
 let grupoAtual = "todos";
 let mostrarFav = false;
 
-// Adicione aqui sua lista completa de 500+ exercícios
 const maquinas = [
     {nome:"Supino Reto Máquina",grupo:"peito"},
     {nome:"Supino Inclinado Máquina",grupo:"peito"},
@@ -147,16 +148,24 @@ function toggleFav() { mostrarFav = !mostrarFav; render(); }
 
 function render() {
     const lista = document.getElementById("lista");
-    const busca = document.getElementById("busca").value.toLowerCase();
     if (!lista) return;
+
+    // Se o Firebase ainda não respondeu, não desenha a lista ainda
+    if (!authPronta) {
+        lista.innerHTML = "<p>Carregando perfil...</p>";
+        return;
+    }
+
+    const busca = document.getElementById("busca").value.toLowerCase();
     lista.innerHTML = "";
 
-    maquinas
-    .filter(m => (grupoAtual === "todos" || m.grupo === grupoAtual) && m.nome.toLowerCase().includes(busca))
-    .forEach(m => {
-        const key = getKey(m.nome);
-        if (localStorage.getItem(key + "_hidden") === "true") return;
+    const filtrados = maquinas.filter(m => 
+        (grupoAtual === "todos" || m.grupo === grupoAtual) && 
+        m.nome.toLowerCase().includes(busca)
+    );
 
+    filtrados.forEach(m => {
+        const key = getKey(m.nome);
         const fav = localStorage.getItem(key + "_fav") === "true";
         if (mostrarFav && !fav) return;
 
@@ -214,14 +223,12 @@ function verGrafico(nome) {
         data: {
             labels: hist.map((_, i) => "T" + (i + 1)),
             datasets: [{ label: "Peso", data: hist, borderColor: '#4285F4', backgroundColor: 'rgba(66, 133, 244, 0.2)', fill: true }]
-        },
-        options: { scales: { y: { beginAtZero: false } } }
+        }
     });
 }
 
-// Inicializa Service Worker e Render
+// Inicializa Service Worker
 if ("serviceWorker" in navigator) { navigator.serviceWorker.register("sw.js").catch(() => {}); }
-render();
 
 </script>
 </body>
