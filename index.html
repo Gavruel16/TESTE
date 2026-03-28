@@ -1,43 +1,48 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+    <link rel="manifest" href="manifest.json">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gym Tracker PRO</title>
-    <link rel="manifest" href="manifest.json">
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 
+    <script>
+    if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("sw.js");
+    }
+    </script>
+
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f0f0f; color: white; text-align: center; margin: 0; padding: 20px; }
-        input { padding: 10px; border-radius: 8px; border: none; margin: 5px; width: 85px; background: #333; color: white; outline: none; }
-        button { padding: 10px 18px; margin: 5px; border: none; border-radius: 8px; background: #2a2a2a; color: white; cursor: pointer; font-weight: bold; transition: 0.3s; }
-        button:hover { background: #444; }
-        .container { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-top: 20px; }
-        .card { background: #1a1a1a; padding: 20px; border-radius: 15px; width: 280px; border: 1px solid #333; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
-        #user-info { margin: 15px; font-size: 0.9em; color: #4285F4; min-height: 20px; font-weight: bold; }
-        .btn-google { background: #4285F4; color: white; }
-        .btn-google:hover { background: #357ae8; }
-        .btn-danger { background: #b3261e; }
-        canvas { max-width: 100%; margin-top: 15px; background: #111; border-radius: 8px; }
+        body { font-family: Arial; background: #0f0f0f; color: white; text-align: center; }
+        input { padding: 6px; border-radius: 8px; border: none; margin: 3px; width: 70px; background: #333; color: white; }
+        button { padding: 6px 12px; margin: 3px; border: none; border-radius: 8px; background: #1f1f1f; color: white; cursor: pointer; font-weight: bold; }
+        button:hover { background: #333; }
+        .container { display: flex; flex-wrap: wrap; justify-content: center; }
+        .card { background: #1a1a1a; padding: 15px; margin: 10px; border-radius: 12px; width: 270px; border: 1px solid #333; }
+        #user-info { margin: 10px; font-size: 0.9em; color: #4285F4; }
+        canvas { max-width: 100%; margin-top: 10px; }
     </style>
 </head>
+
 <body>
 
 <h1>🏋️ Gym Tracker PRO</h1>
 
 <div id="auth-section">
-    <div id="user-info">Verificando conexão...</div>
-    <button id="btn-login" class="btn-google" onclick="login()" style="display:none;">🔐 Entrar com Google</button>
-    <button id="btn-logout" class="btn-danger" onclick="logout()" style="display:none;">🚪 Sair</button>
+    <div id="user-info">Verificando login...</div>
+    <button onclick="login()">🔐 Login com Google</button>
+    <button onclick="logout()" id="btn-logout" style="display:none; background: #b3261e;">🚪 Sair</button>
 </div>
 
 <div id="app">
-    <input type="text" id="busca" placeholder="Filtrar exercício..." oninput="render()" style="width: 85%; max-width: 400px; margin-bottom: 15px;">
-    
-    <div style="margin-bottom: 20px; display: flex; flex-wrap: wrap; justify-content: center; gap: 5px;">
+    <input type="text" id="busca" placeholder="Buscar..." oninput="render()" style="width: 80%; max-width: 400px; margin: 20px 0;">
+
+    <div style="margin-bottom: 20px;">
         <button onclick="setGrupo('todos')">Todos</button>
         <button onclick="setGrupo('peito')">Peito</button>
         <button onclick="setGrupo('costas')">Costas</button>
@@ -45,110 +50,104 @@
         <button onclick="setGrupo('triceps')">Tríceps</button>
         <button onclick="setGrupo('perna')">Perna</button>
         <button onclick="setGrupo('ombro')">Ombro</button>
-        <button onclick="toggleFav()">⭐ Fav</button>
+        <button onclick="setGrupo('peso_livre')">Peso Livre</button>
+        <button onclick="toggleFav()">⭐ Favoritos</button>
+        <button onclick="resetHidden()">🔄 Restaurar</button>
     </div>
 
     <div class="container" id="lista"></div>
 </div>
 
 <script>
-// 1. CONFIGURAÇÃO FIREBASE
-// 1. CONFIGURAÇÃO FIREBASE
+// --- CONFIGURAÇÃO E LOGIN ---
 const firebaseConfig = {
     apiKey: "AIzaSyAHI75Au3Ai4v751Jx8MNe6OGuyYwfmg5w",
     authDomain: "gym-tracker-3e228.firebaseapp.com",
     projectId: "gym-tracker-3e228"
 };
 
-if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-}
+firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 
-// 2. FORÇAR PERSISTÊNCIA LOCAL (Isso evita deslogar sozinho)
-auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+let usuario = localStorage.getItem("user") || "convidado";
 
-let usuario = localStorage.getItem("user_uid") || "convidado";
-
-// 3. FUNÇÕES DE LOGIN
-async function login() {
+function login() {
     const provider = new firebase.auth.GoogleAuthProvider();
-    // Forçar a conta para garantir que o processo ocorra
-    provider.setCustomParameters({ prompt: 'select_account' });
-    
-    try {
-        // Tentamos o Popup primeiro. Se falhar, ele vai pro catch
-        await auth.signInWithPopup(provider);
-    } catch (error) {
-        console.warn("Popup falhou, tentando Redirect...", error.code);
-        auth.signInWithRedirect(provider);
-    }
+    auth.signInWithRedirect(provider);
 }
 
 function logout() {
     auth.signOut().then(() => {
-        localStorage.removeItem("user_uid");
+        localStorage.removeItem("user");
         location.reload();
     });
 }
 
-// 4. MONITOR DE ESTADO (O CORAÇÃO DO LOGIN)
 auth.onAuthStateChanged(user => {
     const info = document.getElementById("user-info");
-    const btnL = document.getElementById("btn-login");
     const btnO = document.getElementById("btn-logout");
-
+    
     if (user) {
-        console.log("Usuário detectado:", user.email);
         usuario = user.uid;
-        localStorage.setItem("user_uid", user.uid); // Salva o ID manualmente
+        localStorage.setItem("user", usuario);
         info.innerText = "✅ Logado: " + user.email;
-        btnL.style.display = "none";
         btnO.style.display = "inline-block";
     } else {
-        console.log("Nenhum usuário logado.");
         usuario = "convidado";
-        info.innerText = "⚠️ Modo Offline (Dados locais)";
-        btnL.style.display = "inline-block";
+        info.innerText = "⚠️ Modo Offline (Local)";
         btnO.style.display = "none";
     }
     render();
 });
 
-// Captura o resultado do redirect caso tenha sido usado
-auth.getRedirectResult().then(result => {
-    if (result.user) {
-        usuario = result.user.uid;
-        localStorage.setItem("user_uid", result.user.uid);
-        render();
-    }
-}).catch(e => {
-    console.error("Erro no Redirect:", e);
-    if(e.code === 'auth/unauthorized-domain') {
-        alert("ALERTA: Domínio não autorizado no Console do Firebase!");
-    }
-});
-
-// 5. LÓGICA DO APP
-let grupoAtual = "todos";
+// --- LÓGICA DO APP ---
 let mostrarFav = false;
+let grupoAtual = "todos";
 
-// Sua lista de exercícios (reduzida para exemplo)
+function gerarId(nome) {
+    return nome.normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g,"_").replace(/[^\w]/g,"");
+}
+
+function getKey(nome) {
+    return usuario + "_" + nome;
+}
+
+function setGrupo(g) {
+    grupoAtual = g;
+    mostrarFav = false;
+    render();
+}
+
+function toggleFav() {
+    mostrarFav = !mostrarFav;
+    render();
+}
+
+function resetHidden() {
+    Object.keys(localStorage).forEach(k => {
+        if (k.includes("_hidden")) localStorage.removeItem(k);
+    });
+    render();
+}
+
 const maquinas = [
-    {nome:"Supino Reto Máquina", grupo:"peito"},
-    {nome:"Supino Inclinado Máquina", grupo:"peito"},
-    {nome:"Puxada Alta", grupo:"costas"},
-    {nome:"Remada Baixa", grupo:"costas"},
-    {nome:"Rosca Direta", grupo:"biceps"},
-    {nome:"Tríceps Corda", grupo:"triceps"},
-    {nome:"Leg Press 45°", grupo:"perna"},
-    {nome:"Cadeira Extensora", grupo:"perna"},
-    {nome:"Elevação Lateral", grupo:"ombro"},
-    {nome:"Esteira", grupo:"cardio"}
+    /* ========= SEUS EXERCÍCIOS ========= */
+    {nome:"Supino Reto Máquina",grupo:"peito"},
+    {nome:"Supino Inclinado Máquina",grupo:"peito"},
+    {nome:"Puxada Alta",grupo:"costas"},
+    {nome:"Remada Baixa",grupo:"costas"},
+    {nome:"Rosca Direta Barra",grupo:"biceps"},
+    {nome:"Rosca Martelo",grupo:"biceps"},
+    {nome:"Tríceps Polia",grupo:"triceps"},
+    {nome:"Tríceps Corda",grupo:"triceps"},
+    {nome:"Leg Press 45°",grupo:"perna"},
+    {nome:"Cadeira Extensora",grupo:"perna"},
+    {nome:"Elevação Lateral Halter",grupo:"ombro"},
+    {nome:"Desenvolvimento Halter",grupo:"ombro"},
+    {nome:"Esteira",grupo:"cardio"},
+    {nome:"Flexão de Braço",grupo:"peso_livre"}
+    // ... adicione os outros 500 conforme sua lista original aqui
 ];
-
-function gerarId(n) { return n.normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g,"_").replace(/[^\w]/g,""); }
-function getKey(n) { return usuario + "_" + n; }
 
 function render() {
     const lista = document.getElementById("lista");
@@ -156,16 +155,19 @@ function render() {
     if (!lista) return;
     lista.innerHTML = "";
 
-    maquinas.filter(m => 
-        (grupoAtual === "todos" || m.grupo === grupoAtual) && 
-        m.nome.toLowerCase().includes(busca)
-    ).forEach(m => {
+    maquinas
+    .filter(m => (grupoAtual === "todos" || m.grupo === grupoAtual))
+    .filter(m => m.nome.toLowerCase().includes(busca))
+    .forEach(m => {
         const key = getKey(m.nome);
+        if (localStorage.getItem(key + "_hidden") === "true") return;
+
         const fav = localStorage.getItem(key + "_fav") === "true";
         if (mostrarFav && !fav) return;
 
         const peso = localStorage.getItem(key) || "";
         const hist = JSON.parse(localStorage.getItem(key + "_hist")) || [];
+        const meta = localStorage.getItem(key + "_meta") || "";
         const recorde = hist.length ? Math.max(...hist) : 0;
         const id = gerarId(m.nome);
 
@@ -174,10 +176,15 @@ function render() {
         card.innerHTML = `
             <h3>${m.nome} ${fav ? "⭐" : ""}</h3>
             <p>🏆 Recorde: ${recorde}kg</p>
-            <input id="${id}" type="number" value="${peso}" placeholder="Kg">
-            <button onclick="salvar('${m.nome}')">💾 Salvar</button>
+            <input id="${id}" type="number" value="${peso}" placeholder="Peso">
+            <button onclick="salvar('${m.nome}')">Salvar</button>
+            <br>
+            <input id="meta-${id}" value="${meta}" placeholder="Meta" style="margin-top:5px; width: 140px;">
+            <button onclick="salvarMeta('${m.nome}')">🎯</button>
+            <br>
             <div style="margin-top:10px">
-                <button onclick="favoritar('${m.nome}')">${fav ? 'Remover' : 'Favoritar'}</button>
+                <button onclick="favoritar('${m.nome}')">⭐</button>
+                <button onclick="ocultar('${m.nome}')">❌</button>
                 <button onclick="verGrafico('${m.nome}')">📈</button>
             </div>
             <canvas id="graf-${id}" style="display:none"></canvas>
@@ -197,31 +204,48 @@ function salvar(nome) {
     render();
 }
 
+function salvarMeta(nome) {
+    const val = document.getElementById("meta-" + gerarId(nome)).value;
+    localStorage.setItem(getKey(nome) + "_meta", val);
+    render();
+}
+
 function favoritar(nome) {
     const key = getKey(nome) + "_fav";
-    localStorage.setItem(key, localStorage.getItem(key) !== "true");
+    const atual = localStorage.getItem(key) === "true";
+    localStorage.setItem(key, !atual);
+    render();
+}
+
+function ocultar(nome) {
+    localStorage.setItem(getKey(nome) + "_hidden", "true");
     render();
 }
 
 function verGrafico(nome) {
-    const id = "graf-" + gerarId(nome);
-    const ctx = document.getElementById(id);
+    const id = gerarId(nome);
+    const canvas = document.getElementById("graf-" + id);
     const hist = JSON.parse(localStorage.getItem(getKey(nome) + "_hist")) || [];
-    if (!hist.length) return alert("Sem histórico.");
-    ctx.style.display = "block";
-    new Chart(ctx, {
+
+    if (hist.length === 0) { alert("Sem dados para gerar gráfico."); return; }
+
+    canvas.style.display = "block";
+    new Chart(canvas, {
         type: 'line',
         data: {
-            labels: hist.map((_, i) => "T" + (i + 1)),
-            datasets: [{ label: "Peso", data: hist, borderColor: '#4285F4', tension: 0.1 }]
+            labels: hist.map((_, i) => (i + 1) + "º"),
+            datasets: [{
+                label: "Peso (kg)",
+                data: hist,
+                borderColor: '#4285F4',
+                tension: 0.1
+            }]
         }
     });
 }
 
-function setGrupo(g) { grupoAtual = g; mostrarFav = false; render(); }
-function toggleFav() { mostrarFav = !mostrarFav; render(); }
-
 render();
 </script>
+
 </body>
 </html>
