@@ -64,13 +64,25 @@ if (!firebase.apps.length) {
 }
 const auth = firebase.auth();
 
-let usuario = "convidado";
-let authPronta = false; // Trava a renderização até o Firebase responder
+// FORÇAR PERSISTÊNCIA (Fundamental para o APK não deslogar ao fechar)
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+
+let usuario = localStorage.getItem("user_uid") || "convidado";
+let authPronta = false;
 
 // 2. FUNÇÕES DE AUTENTICAÇÃO
-function login() {
+async function login() {
     const provider = new firebase.auth.GoogleAuthProvider();
-    auth.signInWithRedirect(provider);
+    
+    // Se estiver no Capacitor, o redirect funciona melhor para evitar o erro 403
+    // Adicionamos um parâmetro para forçar a seleção de conta
+    provider.setCustomParameters({ prompt: 'select_account' });
+    
+    try {
+        await auth.signInWithRedirect(provider);
+    } catch (e) {
+        console.error("Erro ao iniciar login:", e);
+    }
 }
 
 function logout() {
@@ -80,48 +92,51 @@ function logout() {
     });
 }
 
-// CAPTURA RESULTADO DO REDIRECT (Essencial para GitHub Pages)
+// CAPTURA RESULTADO DO REDIRECT (Indispensável para APK e GitHub Pages)
 auth.getRedirectResult().then((result) => {
     if (result && result.user) {
         usuario = result.user.uid;
-        authPronta = true;
+        localStorage.setItem("user_uid", result.user.uid);
         render();
     }
 }).catch(error => {
     console.error("Erro no Redirect:", error);
-    if(error.code === 'auth/unauthorized-domain') {
-        alert("Erro: Domínio não autorizado no Firebase!");
-    }
 });
 
-// MONITOR DE ESTADO (AQUI É ONDE O LOGIN É CONFIRMADO)
+// MONITOR DE ESTADO
 auth.onAuthStateChanged(user => {
     const info = document.getElementById("user-info");
     const btnL = document.getElementById("btn-login");
     const btnO = document.getElementById("btn-logout");
 
-    authPronta = true; // Firebase terminou de checar
+    authPronta = true;
 
     if (user) {
         usuario = user.uid;
-        info.innerText = "✅ Logado como: " + user.email;
-        info.classList.remove("loading-text");
-        btnL.style.display = "none";
-        btnO.style.display = "inline-block";
+        localStorage.setItem("user_uid", user.uid);
+        if(info) {
+            info.innerText = "✅ Logado como: " + user.email;
+            info.classList.remove("loading-text");
+        }
+        if(btnL) btnL.style.display = "none";
+        if(btnO) btnO.style.display = "inline-block";
     } else {
-        usuario = "convidado";
-        info.innerText = "⚠️ Modo Offline (Dados locais)";
-        info.classList.remove("loading-text");
-        btnL.style.display = "inline-block";
-        btnO.style.display = "none";
+        usuario = localStorage.getItem("user_uid") || "convidado";
+        if(info) {
+            info.innerText = "⚠️ Modo Offline (Dados locais)";
+            info.classList.remove("loading-text");
+        }
+        if(btnL) btnL.style.display = "inline-block";
+        if(btnO) btnO.style.display = "none";
     }
     render();
 });
 
-// 3. LÓGICA DO APP
+// 3. LÓGICA DO APP (Mantenha o restante das funções salvar, favoritar e verGrafico igual)
 let grupoAtual = "todos";
 let mostrarFav = false;
 
+// Sua lista de maquinas...
 const maquinas = [
     {nome:"Supino Reto Máquina",grupo:"peito"},
     {nome:"Supino Inclinado Máquina",grupo:"peito"},
@@ -135,28 +150,20 @@ const maquinas = [
     {nome:"Esteira",grupo:"cardio"}
 ];
 
-function gerarId(nome) {
-    return nome.normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g,"_").replace(/[^\w]/g,"");
-}
-
-function getKey(nome) {
-    return usuario + "_" + nome;
-}
-
-function setGrupo(g) { grupoAtual = g; mostrarFav = false; render(); }
-function toggleFav() { mostrarFav = !mostrarFav; render(); }
+// ... (Funções gerarId, getKey, setGrupo, toggleFav, salvar, favoritar, verGrafico) ...
+// Certifique-se de manter as funções abaixo do render() ou declaradas corretamente.
 
 function render() {
     const lista = document.getElementById("lista");
     if (!lista) return;
 
-    // Se o Firebase ainda não respondeu, não desenha a lista ainda
     if (!authPronta) {
-        lista.innerHTML = "<p>Carregando perfil...</p>";
+        lista.innerHTML = "<p class='loading-text'>Sincronizando perfil...</p>";
         return;
     }
 
-    const busca = document.getElementById("busca").value.toLowerCase();
+    const buscaEl = document.getElementById("busca");
+    const busca = buscaEl ? buscaEl.value.toLowerCase() : "";
     lista.innerHTML = "";
 
     const filtrados = maquinas.filter(m => 
@@ -190,46 +197,8 @@ function render() {
         lista.appendChild(card);
     });
 }
-
-function salvar(nome) {
-    const input = document.getElementById(gerarId(nome));
-    const val = input.value;
-    if (!val) return;
-    const key = getKey(nome);
-    localStorage.setItem(key, val);
-    let hist = JSON.parse(localStorage.getItem(key + "_hist")) || [];
-    hist.push(Number(val));
-    localStorage.setItem(key + "_hist", JSON.stringify(hist));
-    render();
-}
-
-function favoritar(nome) {
-    const key = getKey(nome) + "_fav";
-    const estado = localStorage.getItem(key) === "true";
-    localStorage.setItem(key, !estado);
-    render();
-}
-
-function verGrafico(nome) {
-    const id = "graf-" + gerarId(nome);
-    const ctx = document.getElementById(id);
-    const hist = JSON.parse(localStorage.getItem(getKey(nome) + "_hist")) || [];
-    
-    if (!hist.length) return alert("Sem histórico para este exercício.");
-    
-    ctx.style.display = "block";
-    new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: hist.map((_, i) => "T" + (i + 1)),
-            datasets: [{ label: "Peso", data: hist, borderColor: '#4285F4', backgroundColor: 'rgba(66, 133, 244, 0.2)', fill: true }]
-        }
-    });
-}
-
-// Inicializa Service Worker
-if ("serviceWorker" in navigator) { navigator.serviceWorker.register("sw.js").catch(() => {}); }
-
+// Chame o render uma vez no final para garantir
+render();
 </script>
 </body>
 </html>
