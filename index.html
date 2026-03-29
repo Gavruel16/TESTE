@@ -4,33 +4,33 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gym Tracker PRO - Gabriel</title>
-    
     <style>
-        :root { --primary: #4285F4; --bg: #121212; --card: #1e1e1e; --text: #ffffff; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px; }
+        :root { --primary: #004dc5; --bg: #0a0a0a; --card: #141414; --text: #ffffff; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
         
-        .search-bar { width: 100%; max-width: 400px; padding: 12px; border-radius: 25px; border: 1px solid var(--primary); background: #222; color: white; margin: 0 auto 20px auto; display: block; }
+        .search-bar { width: 100%; max-width: 500px; padding: 12px; border-radius: 20px; border: 1px solid #333; background: #111; color: white; margin: 0 auto 30px auto; display: block; text-align: center; }
         
-        .container { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
+        .container { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; }
         
-        /* Card Estilizado */
-        .card { background: var(--card); border-radius: 20px; width: 310px; padding: 15px; border: 1px solid #333; position: relative; }
-        .badge { background: var(--primary); color: white; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; position: absolute; top: 10px; left: 10px; z-index: 5; text-transform: uppercase; }
+        /* Card idêntico ao seu print */
+        .card { background: var(--card); border-radius: 15px; width: 280px; padding: 15px; border: 1px solid #222; position: relative; transition: 0.3s; }
+        .card:hover { border-color: var(--primary); }
         
-        /* Container de Imagem para GitHub Pages */
-        .img-container { background: white; border-radius: 15px; height: 180px; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 15px; }
+        .badge { background: var(--primary); color: white; padding: 3px 10px; border-radius: 5px; font-size: 10px; font-weight: bold; position: absolute; top: 15px; left: 15px; z-index: 5; text-transform: uppercase; }
+        
+        /* Área da Imagem */
+        .img-container { background: #000; border-radius: 10px; height: 160px; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 15px; border: 1px solid #1a1a1a; }
         .img-container img { width: 100%; height: 100%; object-fit: contain; }
         
-        .title { font-size: 18px; font-weight: bold; margin-bottom: 15px; text-align: center; display: block; }
+        .title { font-size: 16px; font-weight: bold; margin-bottom: 15px; text-align: center; display: block; }
         
-        .row { display: flex; gap: 10px; margin-bottom: 15px; }
+        .row { display: flex; gap: 8px; margin-bottom: 12px; }
         .col { flex: 1; text-align: center; }
-        .col label { display: block; font-size: 12px; color: #aaa; margin-bottom: 5px; }
-        .col input { width: 85%; background: #2a2a2a; border: 1px solid #444; border-radius: 10px; color: white; padding: 12px; text-align: center; font-size: 16px; }
+        .col label { display: block; font-size: 10px; color: #888; margin-bottom: 4px; }
+        .col input { width: 85%; background: #1a1a1a; border: 1px solid #333; border-radius: 8px; color: white; padding: 10px; text-align: center; font-size: 14px; }
 
-        .btn-save { background: var(--primary); color: white; border: none; width: 100%; padding: 15px; border-radius: 12px; font-weight: bold; cursor: pointer; text-transform: uppercase; transition: 0.3s; }
-        .btn-save:active { transform: scale(0.98); }
-        .btn-timer { background: #2a2a2a; color: #888; border: 1px solid #444; width: 100%; padding: 10px; border-radius: 12px; margin-top: 10px; cursor: pointer; }
+        .btn-save { background: var(--primary); color: white; border: none; width: 100%; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px; text-transform: uppercase; }
+        .btn-timer { background: transparent; color: #888; border: 1px solid #333; width: 100%; padding: 8px; border-radius: 8px; margin-top: 8px; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; }
     </style>
 </head>
 <body>
@@ -56,15 +56,19 @@
             const peso = localStorage.getItem("gym_" + m.id + "_p") || 0;
             const meta = localStorage.getItem("gym_" + m.id + "_m") || 0;
             
-            // Link otimizado para web (GitHub Pages aceita esse link sem bloqueios)
+            // Link 1: GitHub Raw (Mais rápido)
             const imgUrl = `https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/${m.id}/visual.gif`;
+            // Link 2: Fallback caso o 1 falhe
+            const fallbackUrl = `https://edbtraingateway.com/image/${m.id}.gif`;
 
             const card = document.createElement("div");
             card.className = "card";
             card.innerHTML = `
                 <div class="badge">${m.grupo}</div>
                 <div class="img-container">
-                    <img src="${imgUrl}" loading="lazy" onerror="this.src='https://via.placeholder.com/300x200/444/fff?text=Sem+Foto'">
+                    <img src="${imgUrl}" 
+                         onerror="this.onerror=null; this.src='${fallbackUrl}';" 
+                         loading="lazy">
                 </div>
                 <span class="title">${m.nome}</span>
                 <div class="row">
@@ -81,21 +85,18 @@
     function salvar(id) {
         localStorage.setItem("gym_" + id + "_p", document.getElementById("p-" + id).value);
         localStorage.setItem("gym_" + id + "_m", document.getElementById("m-" + id).value);
-        alert("Salvo com sucesso!");
+        alert("Salvo!");
     }
 
     function timer(seg, btnId) {
         const btn = document.getElementById(btnId);
-        let t = seg;
-        btn.disabled = true;
+        let t = seg; btn.disabled = true;
         const interval = setInterval(() => {
-            btn.innerText = `⏳ ${t}s`;
-            t--;
+            btn.innerText = `⏳ ${t}s`; t--;
             if (t < 0) {
                 clearInterval(interval);
                 btn.innerText = "⏱️ Descanso 60s";
                 btn.disabled = false;
-                alert("Tempo esgotado!");
             }
         }, 1000);
     }
