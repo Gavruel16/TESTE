@@ -3,222 +3,104 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gym Tracker PRO</title>
-    <link rel="manifest" href="manifest.json">
+    <title>Gym Tracker PRO - Gabriel</title>
     
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
     <style>
-        body { font-family: 'Segoe UI', Arial, sans-serif; background: #0f0f0f; color: white; text-align: center; margin: 0; padding: 20px; }
-        h1 { color: #4285F4; margin-bottom: 5px; }
-        input { padding: 10px; border-radius: 8px; border: none; margin: 5px; width: 85px; background: #333; color: white; font-size: 16px; }
-        button { padding: 10px 15px; margin: 5px; border: none; border-radius: 8px; background: #2a2a2a; color: white; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        button:hover { background: #444; }
-        .container { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
-        .card { background: #1a1a1a; padding: 15px; border-radius: 12px; width: 280px; border: 1px solid #333; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
-        #user-info { margin: 15px; font-size: 0.9em; color: #aaa; min-height: 1.2em; }
-        .btn-google { background: #4285F4; color: white; }
-        .btn-google:hover { background: #357ae8; }
-        canvas { max-width: 100%; margin-top: 15px; background: #111; border-radius: 8px; padding: 5px; }
-        .loading-text { font-style: italic; color: #4285F4; }
-        .search-bar { width: 90%; max-width: 400px; padding: 12px; border-radius: 25px; background: #222; border: 1px solid #444; color: white; margin-bottom: 20px; }
+        :root { --primary: #4285F4; --bg: #121212; --card: #1e1e1e; --text: #ffffff; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px; }
+        
+        .search-bar { width: 100%; max-width: 400px; padding: 12px; border-radius: 25px; border: 1px solid var(--primary); background: #222; color: white; margin: 0 auto 20px auto; display: block; }
+        
+        .container { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
+        
+        /* Card Estilizado */
+        .card { background: var(--card); border-radius: 20px; width: 310px; padding: 15px; border: 1px solid #333; position: relative; }
+        .badge { background: var(--primary); color: white; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; position: absolute; top: 10px; left: 10px; z-index: 5; text-transform: uppercase; }
+        
+        /* Container de Imagem para GitHub Pages */
+        .img-container { background: white; border-radius: 15px; height: 180px; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 15px; }
+        .img-container img { width: 100%; height: 100%; object-fit: contain; }
+        
+        .title { font-size: 18px; font-weight: bold; margin-bottom: 15px; text-align: center; display: block; }
+        
+        .row { display: flex; gap: 10px; margin-bottom: 15px; }
+        .col { flex: 1; text-align: center; }
+        .col label { display: block; font-size: 12px; color: #aaa; margin-bottom: 5px; }
+        .col input { width: 85%; background: #2a2a2a; border: 1px solid #444; border-radius: 10px; color: white; padding: 12px; text-align: center; font-size: 16px; }
+
+        .btn-save { background: var(--primary); color: white; border: none; width: 100%; padding: 15px; border-radius: 12px; font-weight: bold; cursor: pointer; text-transform: uppercase; transition: 0.3s; }
+        .btn-save:active { transform: scale(0.98); }
+        .btn-timer { background: #2a2a2a; color: #888; border: 1px solid #444; width: 100%; padding: 10px; border-radius: 12px; margin-top: 10px; cursor: pointer; }
     </style>
 </head>
 <body>
 
-<h1>🏋️ Gym Tracker PRO</h1>
-
-<div id="auth-section">
-    <div id="user-info" class="loading-text">Iniciando...</div>
-    <button id="btn-login" class="btn-google" onclick="login()" style="display:none;">🔐 Entrar com Google</button>
-    <button id="btn-logout" onclick="logout()" style="display:none;">🚪 Sair</button>
-</div>
-
-<div id="app">
-    <input type="text" id="busca" class="search-bar" placeholder="Buscar exercício (Ex: Supino)..." oninput="render()">
-    
-    <div style="margin-bottom: 20px; display: flex; flex-wrap: wrap; justify-content: center; gap: 5px;">
-        <button onclick="setGrupo('todos')">Todos</button>
-        <button onclick="setGrupo('peito')">Peito</button>
-        <button onclick="setGrupo('costas')">Costas</button>
-        <button onclick="setGrupo('biceps')">Bíceps</button>
-        <button onclick="setGrupo('triceps')">Tríceps</button>
-        <button onclick="setGrupo('perna')">Perna</button>
-        <button onclick="setGrupo('ombro')">Ombro</button>
-        <button onclick="setGrupo('peso_livre')">Peso Livre</button>
-        <button onclick="toggleFav()">⭐ Fav</button>
-    </div>
-
-    <div class="container" id="lista"></div>
-</div>
+<input type="text" id="busca" class="search-bar" placeholder="Buscar exercício..." oninput="render()">
+<div class="container" id="lista"></div>
 
 <script>
-// 1. CONFIGURAÇÃO SUPABASE
-const supabaseUrl = 'https://bhopmzhxhalotusoifiq.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJob3Btemh4aGFsb3R1c29pZmlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ3NDExMTgsImV4cCI6MjA5MDMxNzExOH0.TJQ2jN3QDzciqTbA0AXIBPiJ5ymIQp7j2i1-MlucZ8k';
-const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
+    const maquinas = [
+        {id:"0289", nome:"Supino Reto (Halter)", grupo:"chest"},
+        {id:"0047", nome:"Puxada Alta", grupo:"back"},
+        {id:"0599", nome:"Leg Press 45", grupo:"upper legs"},
+        {id:"0652", nome:"Rosca Direta", grupo:"upper arms"},
+        {id:"0822", nome:"Tríceps Corda", grupo:"upper arms"}
+    ];
 
-let usuario = localStorage.getItem("user_id") || "convidado";
-let authPronta = false;
+    function render() {
+        const lista = document.getElementById("lista");
+        const termo = document.getElementById("busca").value.toLowerCase();
+        lista.innerHTML = "";
 
-// 2. FUNÇÕES DE AUTENTICAÇÃO
-async function login() {
-    const { error } = await _supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo: window.location.origin }
-    });
-    if (error) alert("Erro: " + error.message);
-}
+        maquinas.filter(m => m.nome.toLowerCase().includes(termo)).forEach(m => {
+            const peso = localStorage.getItem("gym_" + m.id + "_p") || 0;
+            const meta = localStorage.getItem("gym_" + m.id + "_m") || 0;
+            
+            // Link otimizado para web (GitHub Pages aceita esse link sem bloqueios)
+            const imgUrl = `https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/${m.id}/visual.gif`;
 
-async function logout() {
-    await _supabase.auth.signOut();
-    localStorage.clear();
-    location.reload();
-}
-
-// 3. MONITOR DE ESTADO
-_supabase.auth.onAuthStateChange((event, session) => {
-    const info = document.getElementById("user-info");
-    const btnL = document.getElementById("btn-login");
-    const btnO = document.getElementById("btn-logout");
-
-    authPronta = true;
-
-    if (session) {
-        usuario = session.user.id;
-        localStorage.setItem("user_id", usuario);
-        if(info) info.innerText = "✅ Logado: " + session.user.email;
-        if(btnL) btnL.style.display = "none";
-        if(btnO) btnO.style.display = "inline-block";
-        carregarDadosNuvem(); 
-    } else {
-        usuario = "convidado";
-        if(info) info.innerText = "⚠️ Modo Offline (Dados locais)";
-        if(btnL) btnL.style.display = "inline-block";
-        if(btnO) btnO.style.display = "none";
-    }
-    render();
-});
-
-// 4. FUNÇÃO SALVAR
-async function salvar(nome) {
-    const idInput = gerarId(nome);
-    const pesoValue = document.getElementById(idInput).value;
-    if (!pesoValue) return;
-
-    const key = usuario + "_" + nome;
-    localStorage.setItem(key, pesoValue);
-
-    let hist = JSON.parse(localStorage.getItem(key + "_hist")) || [];
-    hist.push(Number(pesoValue));
-    localStorage.setItem(key + "_hist", JSON.stringify(hist));
-
-    if (usuario !== "convidado") {
-        await _supabase.from('treinos').upsert({ 
-            user_id: usuario, exercicio: nome, peso: parseInt(pesoValue) 
-        }, { onConflict: 'user_id, exercicio' });
-    }
-    render();
-    alert("Salvo!");
-}
-
-// 5. CARREGAR NUVEM
-async function carregarDadosNuvem() {
-    if (usuario === "convidado") return;
-    const { data } = await _supabase.from('treinos').select('*').eq('user_id', usuario);
-    if (data) {
-        data.forEach(item => {
-            const key = usuario + "_" + item.exercicio;
-            localStorage.setItem(key, item.peso);
+            const card = document.createElement("div");
+            card.className = "card";
+            card.innerHTML = `
+                <div class="badge">${m.grupo}</div>
+                <div class="img-container">
+                    <img src="${imgUrl}" loading="lazy" onerror="this.src='https://via.placeholder.com/300x200/444/fff?text=Sem+Foto'">
+                </div>
+                <span class="title">${m.nome}</span>
+                <div class="row">
+                    <div class="col"><label>Peso (kg)</label><input type="number" id="p-${m.id}" value="${peso}"></div>
+                    <div class="col"><label>Meta (kg)</label><input type="number" id="m-${m.id}" value="${meta}"></div>
+                </div>
+                <button class="btn-save" onclick="salvar('${m.id}')">SALVAR PROGRESSO</button>
+                <button id="t-${m.id}" class="btn-timer" onclick="timer(60, 't-${m.id}')">⏱️ Descanso 60s</button>
+            `;
+            lista.appendChild(card);
         });
-        render();
     }
-}
 
-// 6. DADOS DOS EXERCÍCIOS
-let grupoAtual = "todos";
-let mostrarFav = false;
-const maquinas = [
-    {nome:"Supino Reto Máquina",grupo:"peito"}, {nome:"Supino Inclinado Máquina",grupo:"peito"},
-    {nome:"Puxada Alta",grupo:"costas"}, {nome:"Remada Baixa",grupo:"costas"},
-    {nome:"Rosca Direta Barra",grupo:"biceps"}, {nome:"Rosca Martelo",grupo:"biceps"},
-    {nome:"Tríceps Polia",grupo:"triceps"}, {nome:"Tríceps Corda",grupo:"triceps"},
-    {nome:"Leg Press 45°",grupo:"perna"}, {nome:"Cadeira Extensora",grupo:"perna"},
-    {nome:"Desenvolvimento Halter",grupo:"ombro"}, {nome:"Elevação Lateral",grupo:"ombro"},
-    {nome:"Esteira",grupo:"cardio"}, {nome:"Bicicleta",grupo:"cardio"}
-    // ... Adicione mais aqui se precisar
-];
+    function salvar(id) {
+        localStorage.setItem("gym_" + id + "_p", document.getElementById("p-" + id).value);
+        localStorage.setItem("gym_" + id + "_m", document.getElementById("m-" + id).value);
+        alert("Salvo com sucesso!");
+    }
 
-function gerarId(nome) {
-    return nome.normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g,"_").replace(/[^\w]/g,"");
-}
+    function timer(seg, btnId) {
+        const btn = document.getElementById(btnId);
+        let t = seg;
+        btn.disabled = true;
+        const interval = setInterval(() => {
+            btn.innerText = `⏳ ${t}s`;
+            t--;
+            if (t < 0) {
+                clearInterval(interval);
+                btn.innerText = "⏱️ Descanso 60s";
+                btn.disabled = false;
+                alert("Tempo esgotado!");
+            }
+        }, 1000);
+    }
 
-function getKey(nome) { return usuario + "_" + nome; }
-function setGrupo(g) { grupoAtual = g; render(); }
-function toggleFav() { mostrarFav = !mostrarFav; render(); }
-
-function render() {
-    const lista = document.getElementById("lista");
-    if (!lista) return;
-
-    const busca = document.getElementById("busca").value.toLowerCase();
-    lista.innerHTML = "";
-
-    const filtrados = maquinas.filter(m => 
-        (grupoAtual === "todos" || m.grupo === grupoAtual) && 
-        m.nome.toLowerCase().includes(busca)
-    );
-
-    filtrados.forEach(m => {
-        const key = getKey(m.nome);
-        const fav = localStorage.getItem(key + "_fav") === "true";
-        if (mostrarFav && !fav) return;
-
-        const peso = localStorage.getItem(key) || "";
-        const hist = JSON.parse(localStorage.getItem(key + "_hist")) || [];
-        const recorde = hist.length ? Math.max(...hist) : 0;
-        const id = gerarId(m.nome);
-
-        const card = document.createElement("div");
-        card.className = "card";
-        card.innerHTML = `
-            <h3>${m.nome} ${fav ? "⭐" : ""}</h3>
-            <p>🏆 Recorde: <strong>${recorde}kg</strong></p>
-            <input id="${id}" type="number" value="${peso}" placeholder="Kg">
-            <button onclick="salvar('${m.nome}')">💾 Salvar</button>
-            <div style="margin-top:10px">
-                <button onclick="favoritar('${m.nome}')">${fav ? 'Remover ⭐' : 'Favoritar ⭐'}</button>
-                <button onclick="verGrafico('${m.nome}')">📈 Gráfico</button>
-            </div>
-            <canvas id="graf-${id}" style="display:none"></canvas>
-        `;
-        lista.appendChild(card);
-    });
-}
-
-function favoritar(nome) {
-    const key = getKey(nome) + "_fav";
-    localStorage.setItem(key, localStorage.getItem(key) !== "true");
     render();
-}
-
-function verGrafico(nome) {
-    const id = gerarId(nome);
-    const ctx = document.getElementById("graf-" + id);
-    const hist = JSON.parse(localStorage.getItem(getKey(nome) + "_hist")) || [];
-    if (!hist.length) return alert("Sem histórico.");
-    ctx.style.display = "block";
-    new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: hist.map((_, i) => i + 1),
-            datasets: [{ label: "kg", data: hist, borderColor: '#4285F4' }]
-        }
-    });
-}
-
-render();
 </script>
 </body>
 </html>
