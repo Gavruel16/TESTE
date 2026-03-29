@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gym Tracker PRO - Gabriel</title>
+    <title>Gym Tracker - Gabriel</title>
     <style>
         :root { --primary: #004dc5; --bg: #0a0a0a; --card: #141414; --text: #ffffff; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
@@ -12,12 +12,12 @@
         
         .container { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; }
         
-        /* Card fiel aos seus prints */
+        /* Visual idêntico ao seu projeto atual */
         .card { background: var(--card); border-radius: 15px; width: 280px; padding: 15px; border: 1px solid #222; position: relative; }
         .badge { background: var(--primary); color: white; padding: 3px 10px; border-radius: 5px; font-size: 10px; font-weight: bold; position: absolute; top: 15px; left: 15px; z-index: 5; text-transform: uppercase; }
         
         .img-container { background: #000; border-radius: 10px; height: 160px; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 15px; border: 1px solid #1a1a1a; }
-        .img-container img { width: 100%; height: 100%; object-fit: contain; }
+        .img-container img { width: 100%; height: 100%; object-fit: cover; } /* Cover para preencher bem o espaço */
         
         .title { font-size: 16px; font-weight: bold; margin-bottom: 15px; text-align: center; display: block; }
         
@@ -36,12 +36,23 @@
 <div class="container" id="lista"></div>
 
 <script>
+    // Usando links de GIFs que NÃO bloqueiam o GitHub Pages
     const maquinas = [
-        {id:"0289", nome:"Supino Reto (Halter)", grupo:"chest"},
-        {id:"0047", nome:"Puxada Alta", grupo:"back"},
-        {id:"0599", nome:"Leg Press 45", grupo:"upper legs"},
-        {id:"0652", nome:"Rosca Direta", grupo:"upper arms"},
-        {id:"0822", nome:"Tríceps Corda", grupo:"upper arms"}
+        {
+            nome: "Supino Reto (Halter)", 
+            grupo: "chest", 
+            gif: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJueXByeXJueXByeXJueXByeXJueXByeXJueXByeXJueXByJmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1n/l3vR6YImf89nS2RSE/giphy.gif"
+        },
+        {
+            nome: "Puxada Alta", 
+            grupo: "back", 
+            gif: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJueXByeXJueXByeXJueXByeXJueXByeXJueXByeXJueXByJmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1n/3o7TKMGpxx87T3mNc4/giphy.gif"
+        },
+        {
+            nome: "Leg Press 45", 
+            grupo: "upper legs", 
+            gif: "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNHJueXByeXJueXByeXJueXByeXJueXByeXJueXByeXJueXByJmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1n/3o7TKVUn7iM8FMEU24/giphy.gif"
+        }
     ];
 
     function render() {
@@ -49,27 +60,24 @@
         const termo = document.getElementById("busca").value.toLowerCase();
         lista.innerHTML = "";
 
-        maquinas.filter(m => m.nome.toLowerCase().includes(termo)).forEach(m => {
-            const peso = localStorage.getItem("gym_" + m.id + "_p") || 0;
-            const meta = localStorage.getItem("gym_" + m.id + "_m") || 0;
+        maquinas.filter(m => m.nome.toLowerCase().includes(termo)).forEach((m, index) => {
+            const peso = localStorage.getItem("gym_" + index + "_p") || 0;
+            const meta = localStorage.getItem("gym_" + index + "_m") || 0;
             
-            // Link que usa o proxy do Cloudflare para evitar que o GIF fique preto
-            const gifUrl = `https://weserv.nl/?url=raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/${m.id}/visual.gif&n=-1`;
-
             const card = document.createElement("div");
             card.className = "card";
             card.innerHTML = `
                 <div class="badge">${m.grupo}</div>
                 <div class="img-container">
-                    <img src="${gifUrl}" loading="lazy" onerror="this.src='https://via.placeholder.com/300x200/141414/ffffff?text=Carregando...'">
+                    <img src="${m.gif}" loading="lazy">
                 </div>
                 <span class="title">${m.nome}</span>
                 <div class="row">
-                    <div class="col"><label>Peso (kg)</label><input type="number" id="p-${m.id}" value="${peso}"></div>
-                    <div class="col"><label>Meta (kg)</label><input type="number" id="m-${m.id}" value="${meta}"></div>
+                    <div class="col"><label>Peso (kg)</label><input type="number" id="p-${index}" value="${peso}"></div>
+                    <div class="col"><label>Meta (kg)</label><input type="number" id="m-${index}" value="${meta}"></div>
                 </div>
-                <button class="btn-save" onclick="salvar('${m.id}')">SALVAR PROGRESSO</button>
-                <button id="t-${m.id}" class="btn-timer" onclick="timer(60, 't-${m.id}')">⏱️ Descanso 60s</button>
+                <button class="btn-save" onclick="salvar(${index})">SALVAR PROGRESSO</button>
+                <button id="t-${index}" class="btn-timer" onclick="timer(60, 't-${index}')">⏱️ Descanso 60s</button>
             `;
             lista.appendChild(card);
         });
