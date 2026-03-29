@@ -12,13 +12,12 @@
         
         .container { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; }
         
-        /* Estilo fiel ao seu print mais recente */
+        /* Card fiel aos seus prints */
         .card { background: var(--card); border-radius: 15px; width: 280px; padding: 15px; border: 1px solid #222; position: relative; }
-        
         .badge { background: var(--primary); color: white; padding: 3px 10px; border-radius: 5px; font-size: 10px; font-weight: bold; position: absolute; top: 15px; left: 15px; z-index: 5; text-transform: uppercase; }
         
         .img-container { background: #000; border-radius: 10px; height: 160px; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 15px; border: 1px solid #1a1a1a; }
-        .img-container img { width: 100%; height: 100%; object-fit: contain; background: white; }
+        .img-container img { width: 100%; height: 100%; object-fit: contain; }
         
         .title { font-size: 16px; font-weight: bold; margin-bottom: 15px; text-align: center; display: block; }
         
@@ -37,7 +36,6 @@
 <div class="container" id="lista"></div>
 
 <script>
-    // IDs validados que funcionam com GIFs externos
     const maquinas = [
         {id:"0289", nome:"Supino Reto (Halter)", grupo:"chest"},
         {id:"0047", nome:"Puxada Alta", grupo:"back"},
@@ -55,16 +53,15 @@
             const peso = localStorage.getItem("gym_" + m.id + "_p") || 0;
             const meta = localStorage.getItem("gym_" + m.id + "_m") || 0;
             
-            // Link que atravessa o bloqueio do GitHub Pages
-            const gifUrl = `https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/${m.id}/visual.gif`;
+            // Link que usa o proxy do Cloudflare para evitar que o GIF fique preto
+            const gifUrl = `https://weserv.nl/?url=raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/${m.id}/visual.gif&n=-1`;
 
             const card = document.createElement("div");
             card.className = "card";
             card.innerHTML = `
                 <div class="badge">${m.grupo}</div>
                 <div class="img-container">
-                    <img src="${gifUrl}" crossorigin="anonymous" loading="lazy" 
-                         onerror="this.src='https://via.placeholder.com/300x200/141414/ffffff?text=Carregando+GIF...'">
+                    <img src="${gifUrl}" loading="lazy" onerror="this.src='https://via.placeholder.com/300x200/141414/ffffff?text=Carregando...'">
                 </div>
                 <span class="title">${m.nome}</span>
                 <div class="row">
@@ -81,16 +78,14 @@
     function salvar(id) {
         localStorage.setItem("gym_" + id + "_p", document.getElementById("p-" + id).value);
         localStorage.setItem("gym_" + id + "_m", document.getElementById("m-" + id).value);
-        alert("Progresso salvo localmente!");
+        alert("Salvo!");
     }
 
     function timer(seg, btnId) {
         const btn = document.getElementById(btnId);
-        let t = seg; 
-        btn.disabled = true;
+        let t = seg; btn.disabled = true;
         const interval = setInterval(() => {
-            btn.innerText = `⏳ ${t}s`; 
-            t--;
+            btn.innerText = `⏳ ${t}s`; t--;
             if (t < 0) {
                 clearInterval(interval);
                 btn.innerText = "⏱️ Descanso 60s";
