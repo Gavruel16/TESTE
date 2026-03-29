@@ -68,50 +68,40 @@ if (!firebase.apps.length) {
 // 1. Inicialização com Persistência Local
 const auth = firebase.auth();
 
-// Força o Firebase a salvar o login no "disco" do celular, não na memória temporária
-auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
-  .then(() => {
-    // 2. Captura o resultado do Redirect ANTES de qualquer outra coisa
-    return auth.getRedirectResult();
-  })
-  .then((result) => {
-    if (result && result.user) {
-      console.log("Login recuperado após redirect!");
-      render();
-    }
-  })
-  .catch((error) => {
-    console.error("Erro ao recuperar estado do login:", error);
-    // Se der erro de "missing initial state", o Firebase limpa o lixo e permite tentar de novo
-    if (error.code === 'auth/missing-android-pkg-name' || error.code === 'auth/missing-initial-state') {
-        // Limpeza silenciosa para evitar o travamento da tela cinza
-    }
-  });
+// 1. Configuração de Persistência (Garante que o login não suma ao fechar o app)
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
 
+// 2. Função de Login que abre o Navegador Externo
 async function login() {
     const provider = new firebase.auth.GoogleAuthProvider();
     
-    // Configuração para garantir que o Google trate como um navegador seguro
+    // Força o Google a tratar a requisição como um navegador seguro
     provider.setCustomParameters({
         prompt: 'select_account'
     });
 
     try {
-        // O signInWithRedirect tira o usuário da WebView e abre o navegador do sistema
+        // Isso tira o usuário do app e abre o Chrome real
         await auth.signInWithRedirect(provider);
     } catch (e) {
         console.error("Erro ao iniciar login:", e);
+        alert("Erro ao abrir o navegador: " + e.message);
     }
 }
 
-// Captura o resultado quando o navegador devolve o usuário para o app
+// 3. OBRIGATÓRIO: Capturar o resultado quando o navegador volta para o app
 auth.getRedirectResult().then((result) => {
     if (result && result.user) {
-        console.log("Login bem-sucedido!");
-        render();
+        console.log("Login realizado com sucesso!");
+        usuario = result.user.uid;
+        localStorage.setItem("user_uid", result.user.uid);
+        render(); // Atualiza a sua lista de exercícios
     }
-}).catch(err => {
-    console.error("Erro no retorno do login:", err);
+}).catch(error => {
+    console.error("Erro no retorno do login:", error);
+    if (error.code === 'auth/missing-initial-state') {
+        console.log("Estado inicial perdido. Isso é comum em APKs sem o domínio autorizado.");
+    }
 });
 
 // Captura retorno do Redirect (Essencial para APK e GitHub)
