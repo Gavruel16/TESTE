@@ -17,9 +17,9 @@
         .card { background: var(--card); border-radius: 15px; width: 280px; padding: 15px; border: 1px solid #222; position: relative; }
         .badge { background: var(--primary); color: white; padding: 3px 10px; border-radius: 5px; font-size: 10px; font-weight: bold; position: absolute; top: 15px; left: 15px; z-index: 5; text-transform: uppercase; }
         
-        /* Container do GIF (Oculto por padrão para economizar dados e bateria) */
+        /* Container do GIF (Oculto por padrão, aparece com flex) */
         .img-container { background: #000; border-radius: 10px; height: 180px; display: none; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 15px; border: 1px solid #1a1a1a; }
-        .img-container img { width: 100%; height: 100%; object-fit: contain; } /* 'contain' para mostrar o GIF inteiro */
+        .img-container img { width: 100%; height: 100%; object-fit: contain; display: block; } /* 'contain' para o GIF inteiro, 'block' para garantir visibilidade */
         
         .title { font-size: 16px; font-weight: bold; margin-bottom: 15px; text-align: center; display: block; }
         
@@ -41,7 +41,7 @@
 <div class="container" id="lista"></div>
 
 <script>
-    // LISTA ATUALIZADA PARA BUSCAR GIFs NA SUA PASTA 'img'
+    // LISTA COM OS CAMINHOS DOS GIFs NA SUA PASTA 'img'
     const maquinas = [
         { nome: "Supino Reto (Halter)", grupo: "chest", foto: "img/supino.gif" },
         { nome: "Puxada Alta", grupo: "back", foto: "img/puxada.gif" },
@@ -55,17 +55,23 @@
         const termo = document.getElementById("busca").value.toLowerCase();
         lista.innerHTML = "";
 
+        // Gera um número aleatório único para esta renderização para quebrar o cache
+        const cacheBuster = new Date().getTime();
+
         maquinas.filter(m => m.nome.toLowerCase().includes(termo)).forEach((m, index) => {
             // Recupera pesos salvos individualmente
             const peso = localStorage.getItem("gym_" + m.nome + "_p") || 0;
             const meta = localStorage.getItem("gym_" + m.nome + "_m") || 0;
             
+            // Adiciona o cache buster ao link do GIF
+            const gifUrlWithCacheBuster = `${m.foto}?v=${cacheBuster}`;
+
             const card = document.createElement("div");
             card.className = "card";
             card.innerHTML = `
                 <div class="badge">${m.grupo}</div>
                 <div class="img-container" id="cont-${index}">
-                    <img src="${m.foto}" id="img-${index}" loading="lazy">
+                    <img src="${gifUrlWithCacheBuster}" id="img-${index}" loading="lazy">
                 </div>
                 <span class="title">${m.nome}</span>
                 <div class="row">
@@ -83,7 +89,15 @@
     // Função para mostrar/esconder o GIF
     function toggleFoto(index) {
         const container = document.getElementById(`cont-${index}`);
-        container.style.display = (container.style.display === 'flex') ? 'none' : 'flex';
+        const isFlex = container.style.display === 'flex';
+        container.style.display = isFlex ? 'none' : 'flex';
+        
+        // Se estivermos mostrando o GIF, forçamos o recarregamento dele para garantir a animação
+        if (!isFlex) {
+            const img = document.getElementById(`img-${index}`);
+            const currentSrc = img.src.split('?v=')[0]; // Pega o caminho base
+            img.src = `${currentSrc}?v=${new Date().getTime()}`; // Atualiza o cache buster
+        }
     }
 
     // Salva os pesos no navegador (LocalStorage)
