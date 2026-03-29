@@ -12,13 +12,14 @@
         
         .container { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; }
         
-        /* Estilo fiel aos seus prints */
+        /* Card Estilo ExerciseDB */
         .card { background: var(--card); border-radius: 15px; width: 280px; padding: 15px; border: 1px solid #222; position: relative; }
         .badge { background: var(--primary); color: white; padding: 3px 10px; border-radius: 5px; font-size: 10px; font-weight: bold; position: absolute; top: 15px; left: 15px; z-index: 5; text-transform: uppercase; }
         
-        .img-container { background: #000; border-radius: 10px; height: 160px; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 15px; border: 1px solid #1a1a1a; }
-        .img-container img { width: 100%; height: 100%; object-fit: contain; }
-        
+        /* Container de Imagem no Topo */
+        .img-container { background: #000; border-radius: 10px; height: 180px; display: none; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 15px; border: 1px solid #1a1a1a; }
+        .img-container img { width: 100%; height: 100%; object-fit: cover; }
+
         .title { font-size: 16px; font-weight: bold; margin-bottom: 15px; text-align: center; display: block; }
         
         .row { display: flex; gap: 8px; margin-bottom: 12px; }
@@ -26,8 +27,9 @@
         .col label { display: block; font-size: 10px; color: #888; margin-bottom: 4px; }
         .col input { width: 85%; background: #1a1a1a; border: 1px solid #333; border-radius: 8px; color: white; padding: 10px; text-align: center; font-size: 14px; }
 
-        .btn-save { background: var(--primary); color: white; border: none; width: 100%; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px; text-transform: uppercase; }
-        .btn-timer { background: transparent; color: #888; border: 1px solid #333; width: 100%; padding: 8px; border-radius: 8px; margin-top: 8px; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; }
+        .btn-save { background: var(--primary); color: white; border: none; width: 100%; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px; text-transform: uppercase; margin-bottom: 8px; }
+        .btn-view { background: #222; color: #fff; border: 1px solid #444; width: 100%; padding: 10px; border-radius: 8px; font-size: 11px; cursor: pointer; margin-bottom: 8px; font-weight: bold; }
+        .btn-timer { background: transparent; color: #888; border: 1px solid #333; width: 100%; padding: 8px; border-radius: 8px; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; }
     </style>
 </head>
 <body>
@@ -36,33 +38,13 @@
 <div class="container" id="lista"></div>
 
 <script>
-    // LISTA COM OS GIFS QUE FUNCIONAM (TESTADOS)
+    // Agora apontando para as imagens dentro da sua pasta 'img'
     const maquinas = [
-        {
-            nome: "Supino Reto (Halter)", 
-            grupo: "chest", 
-            gif: "https://www.strengthlog.com/wp-content/uploads/2020/03/Dumbbell-Chest-Press.gif"
-        },
-        {
-            nome: "Puxada Alta", 
-            grupo: "back", 
-            gif: "https://www.strengthlog.com/wp-content/uploads/2020/03/Lat-Pulldown.gif"
-        },
-        {
-            nome: "Leg Press 45", 
-            grupo: "upper legs", 
-            gif: "https://www.strengthlog.com/wp-content/uploads/2020/03/Leg-Press.gif"
-        },
-        {
-            nome: "Rosca Direta", 
-            grupo: "upper arms", 
-            gif: "https://www.strengthlog.com/wp-content/uploads/2020/03/Barbell-Curl.gif"
-        },
-        {
-            nome: "Tríceps Corda", 
-            grupo: "upper arms", 
-            gif: "https://www.strengthlog.com/wp-content/uploads/2020/03/Triceps-Pushdown-with-rope.gif"
-        }
+        { nome: "Supino Reto (Halter)", grupo: "chest", foto: "img/supino.png" },
+        { nome: "Puxada Alta", grupo: "back", foto: "img/puxada.png" },
+        { nome: "Leg Press 45", grupo: "upper legs", foto: "img/leg45.png" },
+        { nome: "Rosca Direta", grupo: "upper arms", foto: "img/rosca.png" },
+        { nome: "Tríceps Corda", grupo: "upper arms", foto: "img/triceps.png" }
     ];
 
     function render() {
@@ -78,8 +60,8 @@
             card.className = "card";
             card.innerHTML = `
                 <div class="badge">${m.grupo}</div>
-                <div class="img-container">
-                    <img src="${m.gif}" loading="lazy" onerror="this.src='https://via.placeholder.com/300x200/141414/ffffff?text=Carregando...'">
+                <div class="img-container" id="cont-${index}">
+                    <img src="${m.foto}" id="img-${index}">
                 </div>
                 <span class="title">${m.nome}</span>
                 <div class="row">
@@ -87,31 +69,32 @@
                     <div class="col"><label>Meta (kg)</label><input type="number" id="m-${index}" value="${meta}"></div>
                 </div>
                 <button class="btn-save" onclick="salvar(${index}, '${m.nome}')">SALVAR PROGRESSO</button>
-                <button id="t-${index}" class="btn-timer" onclick="timer(60, 't-${index}')">⏱️ Descanso 60s</button>
+                <button class="btn-view" onclick="toggleFoto(${index})">👁️ VER IMAGEM</button>
+                <button id="t-${index}" class="btn-timer" onclick="timer(60, 't-${index}')">⏱️ DESCANSO 60S</button>
             `;
             lista.appendChild(card);
         });
     }
 
+    function toggleFoto(index) {
+        const container = document.getElementById(`cont-${index}`);
+        container.style.display = (container.style.display === 'flex') ? 'none' : 'flex';
+    }
+
     function salvar(idx, nome) {
-        const p = document.getElementById("p-" + idx).value;
-        const m = document.getElementById("m-" + idx).value;
-        localStorage.setItem("gym_" + nome + "_p", p);
-        localStorage.setItem("gym_" + nome + "_m", m);
-        alert("Salvo com sucesso!");
+        localStorage.setItem("gym_" + nome + "_p", document.getElementById("p-" + idx).value);
+        localStorage.setItem("gym_" + nome + "_m", document.getElementById("m-" + idx).value);
+        alert("Salvo!");
     }
 
     function timer(seg, btnId) {
         const btn = document.getElementById(btnId);
-        let t = seg; 
-        btn.disabled = true;
+        let t = seg; btn.disabled = true;
         const interval = setInterval(() => {
-            btn.innerText = `⏳ ${t}s`; 
-            t--;
+            btn.innerText = `⏳ ${t}s`; t--;
             if (t < 0) {
                 clearInterval(interval);
-                btn.innerText = "⏱️ Descanso 60s";
-                btn.disabled = false;
+                btn.innerText = "⏱️ DESCANSO 60S"; btn.disabled = false;
             }
         }, 1000);
     }
